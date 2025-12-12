@@ -1,402 +1,359 @@
-# Partnership Management System - Complete SQL Guide
+# Partnership Management System - SQL Guide
 
 ## Table of Contents
-1. [Getting Started](#getting-started)
-2. [Basic Database Operations](#basic-database-operations)
-3. [Querying Data](#querying-data)
-4. [Inserting Data](#inserting-data)
-5. [Updating Data](#updating-data)
-6. [Deleting Data](#deleting-data)
-7. [Using Views](#using-views)
-8. [Using Stored Procedures](#using-stored-procedures)
-9. [Advanced Queries](#advanced-queries)
-10. [Reporting Queries](#reporting-queries)
-11. [Database Maintenance](#database-maintenance)
+1. [Setup and Installation](#setup-and-installation)
+2. [Running the Project](#running-the-project)
+3. [Basic MySQL Commands](#basic-mysql-commands)
+4. [Database Interaction Guide](#database-interaction-guide)
+5. [Sample Queries and Testing](#sample-queries-and-testing)
+6. [Troubleshooting](#troubleshooting)
 
 ---
 
-## Getting Started
+## 1. Setup and Installation
+
+### Prerequisites
+- MySQL Server installed on Windows
+- MySQL username: `root`
+- MySQL password (set during MySQL installation)
+
+### Quick Setup
+Simply run the setup batch file from Windows Command Prompt:
+```cmd
+cd "C:\Users\Admin\OneDrive - Hanoi University of Science and Technology\New folder\year 4-1\CS4420\Group"
+
+setup.bat
+```
+
+This will automatically:
+- Check for existing database
+- Warn you before deleting (if database exists)
+- Create new database
+- Create all tables
+- Insert test data
+- Verify installation
+
+---
+
+## 2. Running the Project
+
+### Method 1: Using setup.bat (Recommended)
+```cmd
+setup.bat
+```
+Enter your MySQL password when prompted (you'll be asked multiple times).
+
+### Method 2: Manual Setup from Command Prompt
+```cmd
+mysql -u root -p < schema.sql
+mysql -u root -p < test-data.sql
+```
+Enter your MySQL password when prompted.
+
+### Method 3: Interactive Setup
+```cmd
+mysql -u root -p
+```
+Enter your MySQL password when prompted
+
+Then run these commands in MySQL prompt:
+```sql
+SOURCE schema.sql;
+SOURCE test-data.sql;
+```
+
+---
+
+## 3. Basic MySQL Commands
 
 ### Connecting to MySQL
 
-**Option 1: MySQL Command Line**
-```bash
-# Windows Command Prompt
-cd "C:\Program Files\MySQL\MySQL Server 8.0\bin"
-mysql.exe -u root -p
-
-# Enter your password when prompted
-# Then select the database:
-USE partnership_management;
+#### Connect to MySQL:
+```cmd
+mysql -u root -p
 ```
+Enter your MySQL password when prompted.
 
-**Option 2: MySQL Workbench**
-1. Open MySQL Workbench
-2. Click on your local connection
-3. Enter password
-4. Select `partnership_management` from the schema list
+#### Connect directly to the partnership database:
+```cmd
+mysql -u root -p partnership_management
+```
+Enter your MySQL password when prompted.
 
-### Verify Database Setup
+### Essential MySQL Commands
 ```sql
--- Check if database exists
+-- Show all databases
 SHOW DATABASES;
 
--- Use the database
+-- Use the partnership database
 USE partnership_management;
 
--- List all tables
-SHOW TABLES;
-
--- Get table structure
-DESCRIBE partners;
-DESCRIBE event;
-DESCRIBE invoice;
-```
-
----
-
-## Basic Database Operations
-
-### Viewing Database Structure
-
-```sql
--- Show all tables
+-- Show all tables in current database
 SHOW TABLES;
 
 -- Show table structure
-SHOW COLUMNS FROM partners;
+DESCRIBE partners;
 DESCRIBE event;
 
--- Show table creation statement
-SHOW CREATE TABLE invoice;
+-- Show table creation SQL
+SHOW CREATE TABLE partners;
 
--- Show all indexes on a table
-SHOW INDEX FROM event;
-
--- Show all foreign keys
-SELECT
-    TABLE_NAME,
-    COLUMN_NAME,
-    CONSTRAINT_NAME,
-    REFERENCED_TABLE_NAME,
-    REFERENCED_COLUMN_NAME
-FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
-WHERE TABLE_SCHEMA = 'partnership_management'
-AND REFERENCED_TABLE_NAME IS NOT NULL;
-```
-
-### Quick Data Overview
-
-```sql
--- Count records in each table
-SELECT 'Partners' AS Table_Name, COUNT(*) AS Record_Count FROM partners
-UNION ALL
-SELECT 'Events', COUNT(*) FROM event
-UNION ALL
-SELECT 'Contributions', COUNT(*) FROM contribution
-UNION ALL
-SELECT 'Invoices', COUNT(*) FROM invoice
-UNION ALL
-SELECT 'Payments', COUNT(*) FROM payment
-UNION ALL
-SELECT 'Feedback', COUNT(*) FROM feedback;
+-- Exit MySQL
+EXIT;
+-- or
+QUIT;
+-- or press Ctrl+C
 ```
 
 ---
 
-## Querying Data
+## 4. Database Interaction Guide
 
-### Simple SELECT Queries
+### 4.1 Viewing Data
 
+#### List all partners
 ```sql
--- View all partners
+USE partnership_management;
+
+-- All partners
 SELECT * FROM partners;
 
--- View only active partners
+-- Active partners only
 SELECT * FROM partners WHERE status = 'active';
 
--- View all organizations
-SELECT p.ID, p.name, o.scope, p.status
+-- Organizations only
+SELECT p.*, o.type AS org_type
 FROM partners p
-JOIN organization o ON p.ID = o.ID;
+JOIN organization o ON p.ID = o.ID
+WHERE p.type = 'organization';
 
--- View all individuals
-SELECT p.ID, p.name, i.type, p.status
+-- Individuals only
+SELECT p.*, i.type AS ind_type
 FROM partners p
-JOIN individual i ON p.ID = i.ID;
+JOIN individual i ON p.ID = i.ID
+WHERE p.type = 'individual';
+```
 
--- View all events
-SELECT * FROM event ORDER BY start_date DESC;
+#### List all events
+```sql
+-- All events
+SELECT * FROM event;
 
--- View upcoming events
+-- Events with primary partner names
+SELECT e.*, p.name AS primary_partner
+FROM event e
+JOIN partners p ON e.primary_partner_id = p.ID
+ORDER BY e.start_date DESC;
+
+-- Upcoming events
 SELECT * FROM event
 WHERE start_date >= CURDATE()
 ORDER BY start_date;
 
--- View events by type
-SELECT type, COUNT(*) as count
+-- Events by type
+SELECT type, COUNT(*) AS count
 FROM event
 GROUP BY type;
 ```
 
-### JOIN Queries
-
+#### View organizational units
 ```sql
--- Partners with their contact points
-SELECT
-    p.name AS partner_name,
-    p.type,
-    cp.name AS contact_name,
-    cp.email,
-    cp.phone
-FROM partners p
-LEFT JOIN contact_point cp ON p.ID = cp.partner_ID;
+-- All units
+SELECT * FROM organization_unit;
 
--- Events with primary partners
-SELECT
-    e.title,
-    e.type,
-    e.start_date,
-    p.name AS primary_partner
-FROM event e
-LEFT JOIN partners p ON e.primary_partner_ID = p.ID;
-
--- All partners participating in an event
-SELECT
-    e.title AS event_title,
-    p.name AS partner_name,
-    pe.role
-FROM event e
-JOIN partner_events pe ON e.ID = pe.event_ID
-JOIN partners p ON pe.partner_ID = p.ID
-ORDER BY e.title;
-
--- Contributions with partner and event details
-SELECT
-    c.ID,
-    p.name AS partner_name,
-    e.title AS event_title,
-    c.type,
-    c.monetary_value,
-    c.created_date
-FROM contribution c
-JOIN partners p ON c.partner_ID = p.ID
-JOIN event e ON c.event_ID = e.ID
-ORDER BY c.monetary_value DESC;
-
--- Invoices with payment status
-SELECT
-    i.ref_num,
-    p.name AS partner_name,
-    e.title AS event_title,
-    i.amount,
-    i.status,
-    i.issue_date
-FROM invoice i
-LEFT JOIN partners p ON i.partner_ID = p.ID
-LEFT JOIN event e ON i.event_ID = e.ID
-ORDER BY i.issue_date DESC;
-
--- Affiliations between partners and units
-SELECT
-    p.name AS partner_name,
-    ou.name AS unit_name,
-    ou.scope,
-    a.start_date,
-    a.remark
-FROM affiliation a
-JOIN partners p ON a.partner_ID = p.ID
-JOIN organization_unit ou ON a.unit_ID = ou.ID;
+-- Units by scope
+SELECT scope, COUNT(*) AS count
+FROM organization_unit
+GROUP BY scope;
 ```
 
-### Filtering and Searching
-
+#### View contributions
 ```sql
--- Search partners by name
-SELECT * FROM partners
-WHERE name LIKE '%FPT%';
+-- All contributions
+SELECT * FROM contribution;
 
--- Find events in a date range
-SELECT * FROM event
-WHERE start_date BETWEEN '2023-01-01' AND '2023-12-31';
-
--- Find high-value contributions (over 50 million VND)
+-- Contributions with partner and event info
 SELECT
-    p.name,
-    e.title,
-    c.monetary_value,
-    c.type
-FROM contribution c
-JOIN partners p ON c.partner_ID = p.ID
-JOIN event e ON c.event_ID = e.ID
-WHERE c.monetary_value > 50000000;
-
--- Find unpaid invoices
-SELECT
-    i.ref_num,
+    c.*,
     p.name AS partner_name,
-    i.amount,
-    i.issue_date
-FROM invoice i
-LEFT JOIN partners p ON i.partner_ID = p.ID
-WHERE i.status = 'unpaid';
-
--- Find events with high student participation (>100)
-SELECT title, student_amount, staff_amount, start_date
-FROM event
-WHERE student_amount > 100
-ORDER BY student_amount DESC;
-
--- Find feedback with low ratings
-SELECT
-    f.rater,
-    f.rating,
-    f.comment,
     e.title AS event_title
-FROM feedback f
-LEFT JOIN event e ON f.event_ID = e.ID
-WHERE f.rating <= 2;
-```
+FROM contribution c
+JOIN partners p ON c.partner_id = p.ID
+JOIN event e ON c.event_id = e.ID
+ORDER BY c.created_date DESC;
 
-### Aggregation Queries
-
-```sql
 -- Total contributions by partner
 SELECT
     p.name,
     COUNT(c.ID) AS contribution_count,
     SUM(c.monetary_value) AS total_value
 FROM partners p
-LEFT JOIN contribution c ON p.ID = c.partner_ID
+JOIN contribution c ON p.ID = c.partner_id
 GROUP BY p.ID, p.name
 ORDER BY total_value DESC;
 
--- Average event rating
+-- Cash vs In-kind contributions
+SELECT
+    type,
+    COUNT(*) AS count,
+    SUM(monetary_value) AS total_value
+FROM contribution
+GROUP BY type;
+```
+
+#### View invoices and payments
+```sql
+-- All invoices
+SELECT * FROM invoice;
+
+-- Invoices with payment status
+SELECT
+    i.ID,
+    i.ref_num,
+    i.issue_date,
+    i.amount,
+    i.status,
+    p.name AS partner_name,
+    COALESCE(SUM(pm.amount), 0) AS paid_amount,
+    i.amount - COALESCE(SUM(pm.amount), 0) AS outstanding
+FROM invoice i
+LEFT JOIN partners p ON i.partner_id = p.ID
+LEFT JOIN payment pm ON i.ID = pm.invoice_id
+GROUP BY i.ID, i.ref_num, i.issue_date, i.amount, i.status, p.name;
+
+-- Unpaid invoices
+SELECT * FROM invoice WHERE status = 'unpaid';
+
+-- All payments
+SELECT * FROM payment;
+
+-- Payments by method
+SELECT method, COUNT(*) AS count, SUM(amount) AS total
+FROM payment
+GROUP BY method;
+```
+
+#### View feedback
+```sql
+-- All feedback
+SELECT * FROM feedback;
+
+-- Feedback with event details
+SELECT
+    f.*,
+    e.title AS event_title,
+    e.type AS event_type
+FROM feedback f
+JOIN event e ON f.event_id = e.ID
+ORDER BY f.created_date DESC;
+
+-- Average rating by event
 SELECT
     e.title,
+    COUNT(f.ID) AS feedback_count,
     AVG(f.rating) AS avg_rating,
-    COUNT(f.ID) AS feedback_count
+    MIN(f.rating) AS min_rating,
+    MAX(f.rating) AS max_rating
 FROM event e
-LEFT JOIN feedback f ON e.ID = f.event_ID
+LEFT JOIN feedback f ON e.ID = f.event_id
 GROUP BY e.ID, e.title
-HAVING feedback_count > 0
 ORDER BY avg_rating DESC;
 
--- Total invoice amount by status
-SELECT
-    status,
-    COUNT(*) AS invoice_count,
-    SUM(amount) AS total_amount
-FROM invoice
-GROUP BY status;
-
--- Events per partner
-SELECT
-    p.name,
-    COUNT(DISTINCT pe.event_ID) AS events_participated
-FROM partners p
-LEFT JOIN partner_events pe ON p.ID = pe.partner_ID
-GROUP BY p.ID, p.name
-ORDER BY events_participated DESC;
-
--- Monthly event summary
-SELECT
-    YEAR(start_date) AS year,
-    MONTH(start_date) AS month,
-    COUNT(*) AS event_count,
-    SUM(student_amount) AS total_students
-FROM event
-GROUP BY YEAR(start_date), MONTH(start_date)
-ORDER BY year, month;
+-- Feedback by rating
+SELECT rating, COUNT(*) AS count
+FROM feedback
+GROUP BY rating
+ORDER BY rating DESC;
 ```
 
----
+### 4.2 Using Views
 
-## Inserting Data
-
-### Adding New Partners
+The database includes pre-built views for common queries:
 
 ```sql
--- Add a new organization partner
+-- View active partners with detailed info
+SELECT * FROM v_active_partners;
+
+-- View event summary with metrics
+SELECT * FROM v_event_summary;
+
+-- View invoice summary with payment details
+SELECT * FROM v_invoice_summary;
+
+-- Find events with highest participation
+SELECT * FROM v_event_summary
+ORDER BY student_amount DESC
+LIMIT 5;
+
+-- Find events with best ratings
+SELECT * FROM v_event_summary
+ORDER BY avg_rating DESC
+LIMIT 5;
+
+-- Check outstanding invoices
+SELECT * FROM v_invoice_summary
+WHERE outstanding_amount > 0;
+```
+
+### 4.3 Inserting New Data
+
+#### Add a new partner (Organization)
+```sql
+-- Step 1: Add to partners table
 INSERT INTO partners (ID, name, type, status, note)
-VALUES ('ORG-006', 'Samsung Vietnam', 'organization', 'prospect', 'Technology partnership opportunity');
+VALUES ('ORG-007', 'New Tech Company', 'organization', 'prospect', 'Potential partner for AI research');
 
-INSERT INTO organization (ID, scope)
-VALUES ('ORG-006', 'company');
+-- Step 2: Add organization details
+INSERT INTO organization (ID, type)
+VALUES ('ORG-007', 'company');
+```
 
--- Add a new individual partner
+#### Add a new partner (Individual)
+```sql
+-- Step 1: Add to partners table
 INSERT INTO partners (ID, name, type, status, note)
-VALUES ('IND-006', 'Dr. Hoang Van Kien', 'individual', 'active', 'Blockchain expert');
+VALUES ('IND-005', 'Dr. John Smith', 'individual', 'active', 'International researcher');
 
+-- Step 2: Add individual details
 INSERT INTO individual (ID, type)
-VALUES ('IND-006', 'expert');
+VALUES ('IND-005', 'expert');
 ```
 
-### Adding Contact Information
-
+#### Add a new event
 ```sql
--- Add contact point for a partner
-INSERT INTO contact_point (ID, partner_ID, name, email, phone, type, position)
-VALUES ('CP-011', 'ORG-006', 'University Partnership Team', 'edu@samsung.com.vn', '+84-24-1234-5678', 'organization', 'Manager');
-
--- Add contact details
-INSERT INTO contact (ID, contact_point_ID, name, email, phone, is_primary)
-VALUES ('CNT-006', 'CP-011', 'Ms. Kim Ji-won', 'jiwon.kim@samsung.com', '+84-901-111-222', TRUE);
-
-INSERT INTO contact_organization (ID) VALUES ('CNT-006');
+INSERT INTO event (ID, title, type, location, start_date, end_date,
+                   student_amount, staff_amount, scope_description, primary_partner_id)
+VALUES ('EVT-011', 'Web Development Bootcamp', 'workshop', 'Lab Building',
+        '2024-12-01', '2024-12-05', 50, 5,
+        'Intensive web development training', 'ORG-001');
 ```
 
-### Creating New Events
-
+#### Add a contribution
 ```sql
--- Add a new event
-INSERT INTO event (ID, title, type, location, start_date, end_date, student_amount, staff_amount, scope_description, primary_partner_ID)
-VALUES ('EVT-011', 'Blockchain Technology Workshop', 'workshop', 'Tech Lab', '2024-01-15', '2024-01-17', 60, 6, 'Introduction to blockchain and cryptocurrency', 'IND-006');
-
--- Link partners to the event
-INSERT INTO partner_events (partner_ID, event_ID, role)
-VALUES
-    ('IND-006', 'EVT-011', 'Primary Organizer'),
-    ('ORG-006', 'EVT-011', 'Equipment Sponsor');
+INSERT INTO contribution (ID, partner_id, event_id, type, description,
+                         monetary_value, created_date, note)
+VALUES ('CONT-011', 'ORG-001', 'EVT-011', 'cash',
+        'Bootcamp sponsorship', 20000000.00, CURDATE(),
+        'VND 20,000,000');
 ```
 
-### Recording Contributions
-
+#### Add an invoice
 ```sql
--- Add a new contribution
-INSERT INTO contribution (ID, partner_ID, event_ID, type, description, monetary_value, created_date, note)
-VALUES ('CTB-011', 'ORG-006', 'EVT-011', 'in kind', 'Provided blockchain development kits', 60000000, '2024-01-10', 'Equipment valued at 60M VND');
+INSERT INTO invoice (ID, partner_id, event_id, unit_id, issue_date,
+                    amount, status, ref_num, description)
+VALUES ('INV-011', 'ORG-001', 'EVT-011', 'UNIT-002', CURDATE(),
+        15000000.00, 'unpaid', 'INV202412011',
+        'Bootcamp venue and materials');
 ```
 
-### Creating Invoices and Payments
-
+#### Add a payment
 ```sql
--- Add a new invoice
-INSERT INTO invoice (ID, partner_ID, event_ID, organization_unit_ID, issue_date, amount, status, ref_num)
-VALUES ('INV-011', 'ORG-006', 'EVT-011', 'UNIT-002', '2024-01-05', 25000000.00, 'unpaid', 'INV-2024-001');
-
--- Record a payment
-INSERT INTO payment (ID, invoice_ID, created_date, method, amount, ref_payment)
-VALUES ('PAY-010', 'INV-011', '2024-01-20', 'bank transfer', 25000000.00, 'TXN-SAMSUNG-20240120-001');
+INSERT INTO payment (ID, invoice_id, created_date, method, amount, ref_payment)
+VALUES ('PAY-013', 'INV-011', CURDATE(), 'bank transfer',
+        15000000.00, 'BT20241201013');
 ```
 
-### Adding Feedback
-
-```sql
--- Add event feedback
-INSERT INTO feedback (ID, event_ID, organization_unit_ID, rater, rating, comment, created_date)
-VALUES ('FBK-016', 'EVT-011', NULL, 'Student Nguyen Van B', 5, 'Excellent hands-on workshop on blockchain technology!', '2024-01-18');
-
--- Add organizational unit feedback
-INSERT INTO feedback (ID, event_ID, organization_unit_ID, rater, rating, comment, created_date)
-VALUES ('FBK-017', NULL, 'UNIT-002', 'External Reviewer', 4, 'Good facilities and collaborative environment', '2024-01-20');
-```
-
----
-
-## Updating Data
-
-### Updating Partner Information
+### 4.4 Updating Data
 
 ```sql
 -- Update partner status
@@ -404,646 +361,355 @@ UPDATE partners
 SET status = 'active'
 WHERE ID = 'ORG-005';
 
--- Update partner note
-UPDATE partners
-SET note = 'Long-term strategic partner in AI research'
-WHERE ID = 'ORG-001';
-
--- Change organization scope
-UPDATE organization
-SET scope = 'NGO'
-WHERE ID = 'ORG-003';
-```
-
-### Updating Events
-
-```sql
--- Update event dates
+-- Update event details
 UPDATE event
-SET start_date = '2024-02-01', end_date = '2024-02-03'
-WHERE ID = 'EVT-011';
-
--- Update participation numbers
-UPDATE event
-SET student_amount = 180, staff_amount = 16
+SET student_amount = 150, staff_amount = 18
 WHERE ID = 'EVT-001';
 
--- Change event location
-UPDATE event
-SET location = 'New Conference Center'
-WHERE ID = 'EVT-007';
-```
-
-### Updating Invoice Status
-
-```sql
--- Mark invoice as paid (normally done automatically by trigger)
+-- Update invoice status
 UPDATE invoice
 SET status = 'paid'
-WHERE ID = 'INV-008';
+WHERE ID = 'INV-006';
 
--- Cancel an invoice
-UPDATE invoice
-SET status = 'cancelled'
-WHERE ID = 'INV-010';
-```
-
-### Updating Documents
-
-```sql
--- Update document status
+-- Update document status to expired
 UPDATE documents
-SET status = 'signed'
-WHERE ID = 'DOC-006';
+SET status = 'expired'
+WHERE end_date < CURDATE() AND status = 'signed';
+```
 
--- Extend document end date
-UPDATE documents
-SET end_date = '2027-12-31'
-WHERE ID = 'DOC-002';
+### 4.5 Deleting Data
+
+```sql
+-- Delete a feedback entry
+DELETE FROM feedback WHERE ID = 'FBK-001';
+
+-- Delete a payment
+DELETE FROM payment WHERE ID = 'PAY-001';
+
+-- Delete an invoice (will cascade delete payments)
+DELETE FROM invoice WHERE ID = 'INV-011';
+
+-- Delete a partner (will cascade delete related records)
+DELETE FROM partners WHERE ID = 'ORG-007';
 ```
 
 ---
 
-## Deleting Data
+## 5. Sample Queries and Testing
 
-### Safe Deletion with Foreign Keys
+### 5.1 Analytical Queries
 
+#### Partner Engagement Analysis
 ```sql
--- Delete a feedback record
-DELETE FROM feedback WHERE ID = 'FBK-016';
-
--- Delete a payment (invoice will remain)
-DELETE FROM payment WHERE ID = 'PAY-010';
-
--- Delete a partner-event relationship
-DELETE FROM partner_events
-WHERE partner_ID = 'ORG-006' AND event_ID = 'EVT-011';
-
--- Delete a contribution
-DELETE FROM contribution WHERE ID = 'CTB-011';
-
--- Delete an entire event (will cascade to related records)
-DELETE FROM event WHERE ID = 'EVT-011';
-
--- Delete a partner (will cascade to all related records)
--- WARNING: This will delete contact points, documents, contributions, etc.
-DELETE FROM partners WHERE ID = 'ORG-006';
+-- Partners with most events
+SELECT
+    p.name,
+    COUNT(DISTINCT pe.event_id) AS event_count,
+    SUM(c.monetary_value) AS total_contributions
+FROM partners p
+LEFT JOIN partner_event pe ON p.ID = pe.partner_id
+LEFT JOIN contribution c ON p.ID = c.partner_id
+GROUP BY p.ID, p.name
+ORDER BY event_count DESC;
 ```
 
-### Bulk Deletions
-
+#### Financial Summary
 ```sql
--- Delete all feedback older than 2 years
-DELETE FROM feedback
-WHERE created_date < DATE_SUB(CURDATE(), INTERVAL 2 YEAR);
-
--- Delete all cancelled invoices
-DELETE FROM invoice WHERE status = 'cancelled';
-
--- Delete inactive partners with no events
-DELETE FROM partners
-WHERE status = 'inactive'
-AND ID NOT IN (SELECT DISTINCT partner_ID FROM partner_events);
+-- Total revenue vs total contributions
+SELECT
+    'Invoices' AS category,
+    SUM(amount) AS total_amount
+FROM invoice
+UNION ALL
+SELECT
+    'Payments' AS category,
+    SUM(amount)
+FROM payment
+UNION ALL
+SELECT
+    'Contributions' AS category,
+    SUM(monetary_value)
+FROM contribution;
 ```
 
----
-
-## Using Views
-
-The database includes pre-built views for common queries:
-
-### Active Partnerships View
-
+#### Event Performance
 ```sql
--- View all active partnerships with contact info
-SELECT * FROM active_partnerships;
-
--- Filter active partnerships by type
-SELECT * FROM active_partnerships
-WHERE type = 'organization';
-```
-
-### Event Summary View
-
-```sql
--- View event summary with partner counts
-SELECT * FROM event_summary;
-
--- Find events with most partners
-SELECT * FROM event_summary
-ORDER BY total_partners DESC;
-
--- Events by type
-SELECT type, COUNT(*) as count
-FROM event_summary
-GROUP BY type;
-```
-
-### Invoice Payment Summary View
-
-```sql
--- View all invoice payment statuses
-SELECT * FROM invoice_payment_summary;
-
--- Find unpaid invoices with amounts
-SELECT * FROM invoice_payment_summary
-WHERE status = 'unpaid';
-
--- Find partially paid invoices
-SELECT * FROM invoice_payment_summary
-WHERE remaining_amount > 0 AND paid_amount > 0;
-```
-
----
-
-## Using Stored Procedures
-
-### Get Partner Contribution Total
-
-```sql
--- View total contributions for a specific partner
-CALL get_partner_contribution_total('ORG-001');
-
--- Example for all major partners
-CALL get_partner_contribution_total('ORG-001');
-CALL get_partner_contribution_total('ORG-004');
-CALL get_partner_contribution_total('IND-002');
-```
-
-### Get Event Statistics
-
-```sql
--- Get comprehensive statistics for an event
-CALL get_event_statistics('EVT-003');
-
--- Check statistics for multiple events
-CALL get_event_statistics('EVT-001');
-CALL get_event_statistics('EVT-006');
-CALL get_event_statistics('EVT-010');
-```
-
----
-
-## Advanced Queries
-
-### Complex JOIN Queries
-
-```sql
--- Complete event report with all details
+-- Events with participation and feedback
 SELECT
     e.title,
     e.type,
     e.start_date,
-    e.end_date,
-    p.name AS primary_partner,
-    e.student_amount,
-    e.staff_amount,
-    COUNT(DISTINCT pe.partner_ID) AS total_partners,
-    COUNT(DISTINCT c.ID) AS contributions,
-    SUM(c.monetary_value) AS total_contribution_value,
-    AVG(f.rating) AS avg_rating
-FROM event e
-LEFT JOIN partners p ON e.primary_partner_ID = p.ID
-LEFT JOIN partner_events pe ON e.ID = pe.event_ID
-LEFT JOIN contribution c ON e.ID = c.event_ID
-LEFT JOIN feedback f ON e.ID = f.event_ID
-GROUP BY e.ID, e.title, e.type, e.start_date, e.end_date, p.name, e.student_amount, e.staff_amount;
-
--- Partner engagement report
-SELECT
-    p.ID,
-    p.name,
-    p.type,
-    p.status,
-    COUNT(DISTINCT pe.event_ID) AS events_count,
-    COUNT(DISTINCT c.ID) AS contributions_count,
-    SUM(c.monetary_value) AS total_contributed,
-    COUNT(DISTINCT d.ID) AS documents_count,
-    COUNT(DISTINCT a.ID) AS affiliations_count
-FROM partners p
-LEFT JOIN partner_events pe ON p.ID = pe.partner_ID
-LEFT JOIN contribution c ON p.ID = c.partner_ID
-LEFT JOIN documents d ON p.ID = d.partner_ID
-LEFT JOIN affiliation a ON p.ID = a.partner_ID
-GROUP BY p.ID, p.name, p.type, p.status
-ORDER BY total_contributed DESC;
-
--- Organizational unit performance
-SELECT
-    ou.name AS unit_name,
-    ou.scope,
-    COUNT(DISTINCT a.partner_ID) AS affiliated_partners,
-    COUNT(DISTINCT i.ID) AS invoices_count,
-    SUM(i.amount) AS total_invoiced,
-    AVG(f.rating) AS avg_feedback_rating
-FROM organization_unit ou
-LEFT JOIN affiliation a ON ou.ID = a.unit_ID
-LEFT JOIN invoice i ON ou.ID = i.organization_unit_ID
-LEFT JOIN feedback f ON ou.ID = f.organization_unit_ID
-GROUP BY ou.ID, ou.name, ou.scope;
-```
-
-### Subqueries
-
-```sql
--- Find partners who contributed more than average
-SELECT p.name, SUM(c.monetary_value) AS total
-FROM partners p
-JOIN contribution c ON p.ID = c.partner_ID
-GROUP BY p.ID, p.name
-HAVING SUM(c.monetary_value) > (
-    SELECT AVG(total_contrib) FROM (
-        SELECT SUM(monetary_value) AS total_contrib
-        FROM contribution
-        GROUP BY partner_ID
-    ) AS avg_table
-);
-
--- Events with above-average participation
-SELECT title, student_amount
-FROM event
-WHERE student_amount > (SELECT AVG(student_amount) FROM event);
-
--- Partners with no contributions yet
-SELECT p.name, p.type, p.status
-FROM partners p
-WHERE p.ID NOT IN (SELECT DISTINCT partner_ID FROM contribution);
-
--- Find most active month for events
-SELECT YEAR(start_date) AS year, MONTH(start_date) AS month, COUNT(*) AS event_count
-FROM event
-GROUP BY YEAR(start_date), MONTH(start_date)
-ORDER BY event_count DESC
-LIMIT 1;
-```
-
-### Window Functions (MySQL 8.0+)
-
-```sql
--- Rank partners by total contributions
-SELECT
-    p.name,
-    SUM(c.monetary_value) AS total_contribution,
-    RANK() OVER (ORDER BY SUM(c.monetary_value) DESC) AS contribution_rank
-FROM partners p
-JOIN contribution c ON p.ID = c.partner_ID
-GROUP BY p.ID, p.name;
-
--- Running total of contributions over time
-SELECT
-    created_date,
-    monetary_value,
-    SUM(monetary_value) OVER (ORDER BY created_date) AS running_total
-FROM contribution
-ORDER BY created_date;
-
--- Event participation trends
-SELECT
-    start_date,
-    title,
-    student_amount,
-    AVG(student_amount) OVER (ORDER BY start_date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) AS moving_avg_students
-FROM event
-ORDER BY start_date;
-```
-
----
-
-## Reporting Queries
-
-### Financial Reports
-
-```sql
--- Overall financial summary
-SELECT
-    SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS total_paid,
-    SUM(CASE WHEN status = 'unpaid' THEN amount ELSE 0 END) AS total_unpaid,
-    SUM(amount) AS total_invoiced,
-    COUNT(*) AS total_invoices
-FROM invoice;
-
--- Payment method analysis
-SELECT
-    method,
-    COUNT(*) AS payment_count,
-    SUM(amount) AS total_amount
-FROM payment
-GROUP BY method;
-
--- Monthly revenue report
-SELECT
-    YEAR(p.created_date) AS year,
-    MONTH(p.created_date) AS month,
-    SUM(p.amount) AS monthly_revenue,
-    COUNT(DISTINCT p.invoice_ID) AS invoices_paid
-FROM payment p
-GROUP BY YEAR(p.created_date), MONTH(p.created_date)
-ORDER BY year DESC, month DESC;
-```
-
-### Partnership Reports
-
-```sql
--- Partner status distribution
-SELECT
-    status,
-    type,
-    COUNT(*) AS count
-FROM partners
-GROUP BY status, type;
-
--- Active partnerships by category
-SELECT
-    CASE
-        WHEN p.type = 'organization' THEN o.scope
-        WHEN p.type = 'individual' THEN i.type
-    END AS category,
-    COUNT(*) AS count
-FROM partners p
-LEFT JOIN organization o ON p.ID = o.ID
-LEFT JOIN individual i ON p.ID = i.ID
-WHERE p.status = 'active'
-GROUP BY category;
-
--- Document status overview
-SELECT
-    type,
-    status,
-    COUNT(*) AS count
-FROM documents
-GROUP BY type, status;
-```
-
-### Event Reports
-
-```sql
--- Event type analysis
-SELECT
-    type,
-    COUNT(*) AS event_count,
-    SUM(student_amount) AS total_students,
-    AVG(student_amount) AS avg_students,
-    SUM(staff_amount) AS total_staff
-FROM event
-GROUP BY type
-ORDER BY event_count DESC;
-
--- Yearly event summary
-SELECT
-    YEAR(start_date) AS year,
-    COUNT(*) AS events,
-    SUM(student_amount) AS total_students,
-    SUM(staff_amount) AS total_staff,
-    AVG(student_amount) AS avg_students_per_event
-FROM event
-GROUP BY YEAR(start_date);
-
--- Top-rated events
-SELECT
-    e.title,
-    e.type,
+    e.student_amount + e.staff_amount AS total_participants,
+    COUNT(DISTINCT f.ID) AS feedback_count,
     AVG(f.rating) AS avg_rating,
-    COUNT(f.ID) AS feedback_count
+    SUM(c.monetary_value) AS total_contributions
 FROM event e
-JOIN feedback f ON e.ID = f.event_ID
-GROUP BY e.ID, e.title, e.type
-HAVING feedback_count >= 2
-ORDER BY avg_rating DESC, feedback_count DESC;
+LEFT JOIN feedback f ON e.ID = f.event_id
+LEFT JOIN contribution c ON e.ID = c.event_id
+GROUP BY e.ID, e.title, e.type, e.start_date, e.student_amount, e.staff_amount
+ORDER BY avg_rating DESC;
 ```
 
-### Contribution Analysis
+#### Partnership Timeline
+```sql
+-- Active affiliations with duration
+SELECT
+    p.name AS partner_name,
+    ou.name AS unit_name,
+    a.start_date,
+    a.end_date,
+    DATEDIFF(COALESCE(a.end_date, CURDATE()), a.start_date) AS days_active
+FROM affiliation a
+JOIN partners p ON a.partner_id = p.ID
+JOIN organization_unit ou ON a.unit_id = ou.ID
+ORDER BY days_active DESC;
+```
+
+### 5.2 Data Validation Queries
 
 ```sql
--- Contribution type breakdown
-SELECT
-    type,
-    COUNT(*) AS contribution_count,
-    SUM(monetary_value) AS total_value,
-    AVG(monetary_value) AS avg_value
-FROM contribution
-GROUP BY type;
-
--- Top contributors
-SELECT
-    p.name,
-    p.type,
-    COUNT(c.ID) AS contributions,
-    SUM(c.monetary_value) AS total_value
+-- Check for partners without type specification
+SELECT p.*
 FROM partners p
-JOIN contribution c ON p.ID = c.partner_ID
-GROUP BY p.ID, p.name, p.type
-ORDER BY total_value DESC
-LIMIT 10;
-
--- Contribution trends by quarter
-SELECT
-    YEAR(created_date) AS year,
-    QUARTER(created_date) AS quarter,
-    COUNT(*) AS contributions,
-    SUM(monetary_value) AS total_value
-FROM contribution
-GROUP BY YEAR(created_date), QUARTER(created_date)
-ORDER BY year DESC, quarter DESC;
-```
-
----
-
-## Database Maintenance
-
-### Backup and Restore
-
-```sql
--- Create a backup (run in command line, not MySQL)
--- Windows Command Prompt:
-"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysqldump.exe" -u root -p partnership_management > backup_2024-01-01.sql
-
--- Restore from backup:
-"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p partnership_management < backup_2024-01-01.sql
-```
-
-### Data Validation
-
-```sql
--- Check for orphaned records (shouldn't happen due to FK constraints)
--- Partners without type records
-SELECT p.* FROM partners p
 LEFT JOIN organization o ON p.ID = o.ID
 LEFT JOIN individual i ON p.ID = i.ID
-WHERE o.ID IS NULL AND i.ID IS NULL;
+WHERE p.type = 'organization' AND o.ID IS NULL
+   OR p.type = 'individual' AND i.ID IS NULL;
 
--- Events without primary partners
-SELECT * FROM event WHERE primary_partner_ID IS NULL;
+-- Check for invoices with overpayment
+SELECT
+    i.ID,
+    i.amount,
+    SUM(p.amount) AS total_paid
+FROM invoice i
+JOIN payment p ON i.ID = p.invoice_id
+GROUP BY i.ID, i.amount
+HAVING SUM(p.amount) > i.amount;
 
--- Invoices with payment total not matching invoice amount
+-- Check for events without feedback
+SELECT e.*
+FROM event e
+LEFT JOIN feedback f ON e.ID = f.event_id
+WHERE f.ID IS NULL AND e.end_date < CURDATE();
+
+-- Check for expired documents still marked as signed
+SELECT *
+FROM documents
+WHERE status = 'signed'
+  AND end_date < CURDATE();
+```
+
+### 5.3 Testing Specific Features
+
+#### Test Cascade Deletion
+```sql
+-- Count related records before deletion
+SELECT
+    'Partner' AS entity,
+    COUNT(*) AS count
+FROM partners WHERE ID = 'ORG-001'
+UNION ALL
+SELECT 'Contact Points', COUNT(*) FROM contact_point WHERE partner_id = 'ORG-001'
+UNION ALL
+SELECT 'Documents', COUNT(*) FROM documents WHERE partner_id = 'ORG-001'
+UNION ALL
+SELECT 'Contributions', COUNT(*) FROM contribution WHERE partner_id = 'ORG-001';
+
+-- Delete partner (test cascade)
+-- DELETE FROM partners WHERE ID = 'ORG-001';
+
+-- Verify cascade deletion worked
+-- (Re-run the count query above - should show 0 for all)
+```
+
+#### Test Partial Payments
+```sql
+-- Create test invoice
+INSERT INTO invoice (ID, partner_id, event_id, unit_id, issue_date, amount, status, ref_num)
+VALUES ('INV-TEST', 'ORG-001', 'EVT-001', 'UNIT-001', CURDATE(), 30000000, 'unpaid', 'TEST001');
+
+-- Add partial payment 1
+INSERT INTO payment (ID, invoice_id, created_date, method, amount, ref_payment)
+VALUES ('PAY-TEST1', 'INV-TEST', CURDATE(), 'bank transfer', 10000000, 'TEST-BT-001');
+
+-- Add partial payment 2
+INSERT INTO payment (ID, invoice_id, created_date, method, amount, ref_payment)
+VALUES ('PAY-TEST2', 'INV-TEST', CURDATE(), 'bank transfer', 20000000, 'TEST-BT-002');
+
+-- Check payment status
 SELECT
     i.ID,
     i.amount AS invoice_amount,
-    COALESCE(SUM(p.amount), 0) AS paid_amount,
-    i.status
+    SUM(p.amount) AS total_paid,
+    i.amount - SUM(p.amount) AS outstanding
 FROM invoice i
-LEFT JOIN payment p ON i.ID = p.invoice_ID
-GROUP BY i.ID, i.amount, i.status
-HAVING i.status = 'paid' AND invoice_amount != paid_amount;
-```
+LEFT JOIN payment p ON i.ID = p.invoice_id
+WHERE i.ID = 'INV-TEST'
+GROUP BY i.ID, i.amount;
 
-### Performance Optimization
-
-```sql
--- Analyze table statistics
-ANALYZE TABLE partners, event, invoice, contribution;
-
--- Check table optimization
-CHECK TABLE partners;
-
--- Optimize tables
-OPTIMIZE TABLE partners, event, invoice;
-
--- View slow queries (if slow query log is enabled)
-SELECT * FROM mysql.slow_log ORDER BY query_time DESC LIMIT 10;
-```
-
-### Data Cleanup
-
-```sql
--- Remove old draft documents (older than 1 year)
-DELETE FROM documents
-WHERE status = 'draft'
-AND created_at < DATE_SUB(CURDATE(), INTERVAL 1 YEAR);
-
--- Archive old events (you might want to create an archive table first)
--- Create archive table
-CREATE TABLE event_archive LIKE event;
-
--- Move old events to archive
-INSERT INTO event_archive SELECT * FROM event WHERE end_date < '2022-01-01';
-DELETE FROM event WHERE end_date < '2022-01-01';
+-- Cleanup
+-- DELETE FROM invoice WHERE ID = 'INV-TEST';
 ```
 
 ---
 
-## Tips and Best Practices
+## 6. Troubleshooting
 
-### Query Performance Tips
+### Common Issues and Solutions
 
-1. **Use EXPLAIN to analyze queries:**
-```sql
-EXPLAIN SELECT * FROM event WHERE start_date > '2023-01-01';
+#### Issue: Cannot connect to MySQL
+```cmd
+REM Solution 1: Check if MySQL service is running
+REM Press Win+R, type: services.msc
+REM Look for MySQL80 or MySQL service and start it
+
+REM Solution 2: Test connection
+mysql -u root -p
+REM Enter your MySQL password when prompted
+
+REM Solution 3: Check if MySQL is in PATH
+where mysql
 ```
 
-2. **Use indexes wisely:**
-```sql
--- Check existing indexes
-SHOW INDEX FROM event;
+#### Issue: "Access denied for user 'root'"
+```cmd
+REM Verify password is correct
+mysql -u root -p
+REM Enter your MySQL password when prompted
 
--- Create custom index if needed
-CREATE INDEX idx_custom ON event(type, start_date);
+REM If password is wrong, you may need to reset it
 ```
 
-3. **Limit large result sets:**
+#### Issue: "Database already exists" error
 ```sql
-SELECT * FROM event ORDER BY start_date DESC LIMIT 10;
+-- Drop the database first
+DROP DATABASE IF EXISTS partnership_management;
+
+-- Then create it
+CREATE DATABASE partnership_management;
 ```
 
-### Transaction Management
-
+#### Issue: Foreign key constraint errors
 ```sql
--- Start a transaction
-START TRANSACTION;
+-- Check foreign key constraints
+SELECT * FROM information_schema.TABLE_CONSTRAINTS
+WHERE CONSTRAINT_SCHEMA = 'partnership_management'
+  AND CONSTRAINT_TYPE = 'FOREIGN KEY';
 
--- Make changes
-UPDATE partners SET status = 'inactive' WHERE ID = 'IND-005';
-DELETE FROM contribution WHERE partner_ID = 'IND-005';
-
--- If everything looks good, commit
-COMMIT;
-
--- If something went wrong, rollback
--- ROLLBACK;
+-- Temporarily disable foreign key checks (use carefully!)
+SET FOREIGN_KEY_CHECKS = 0;
+-- ... your operations ...
+SET FOREIGN_KEY_CHECKS = 1;
 ```
 
-### Common Mistakes to Avoid
-
-1. **Don't forget WHERE clause in UPDATE/DELETE:**
+#### Issue: Character encoding problems
 ```sql
--- BAD: Updates ALL records
-UPDATE partners SET status = 'inactive';
+-- Check database charset
+SHOW CREATE DATABASE partnership_management;
 
--- GOOD: Updates specific record
-UPDATE partners SET status = 'inactive' WHERE ID = 'IND-005';
+-- Set proper charset for client
+SET NAMES utf8mb4;
 ```
 
-2. **Use transactions for multiple related changes:**
+### Useful Diagnostic Queries
+
 ```sql
-START TRANSACTION;
-INSERT INTO invoice (...) VALUES (...);
-INSERT INTO payment (...) VALUES (...);
-COMMIT;
+-- Check database size
+SELECT
+    table_name,
+    ROUND(((data_length + index_length) / 1024 / 1024), 2) AS size_mb
+FROM information_schema.TABLES
+WHERE table_schema = 'partnership_management'
+ORDER BY (data_length + index_length) DESC;
+
+-- Check row counts for all tables
+SELECT
+    table_name,
+    table_rows
+FROM information_schema.TABLES
+WHERE table_schema = 'partnership_management'
+ORDER BY table_rows DESC;
+
+-- Check for missing indexes
+SHOW INDEXES FROM partners;
+SHOW INDEXES FROM event;
+
+-- View recent queries (requires log enabled)
+-- SHOW FULL PROCESSLIST;
 ```
 
-3. **Check for NULL values in JOINs:**
-```sql
--- May not show all partners if they don't have events
-SELECT p.name, COUNT(pe.event_ID)
-FROM partners p
-JOIN partner_events pe ON p.ID = pe.partner_ID
-GROUP BY p.name;
+### Getting Help
 
--- Better: Shows all partners even without events
-SELECT p.name, COUNT(pe.event_ID)
-FROM partners p
-LEFT JOIN partner_events pe ON p.ID = pe.partner_ID
-GROUP BY p.name;
+```sql
+-- MySQL help
+HELP;
+
+-- Help for specific command
+HELP SELECT;
+HELP INSERT;
+HELP UPDATE;
+
+-- Show MySQL version
+SELECT VERSION();
+
+-- Show current user
+SELECT USER();
+
+-- Show current database
+SELECT DATABASE();
 ```
 
 ---
 
-## Quick Reference Cheat Sheet
+## Quick Reference Card
 
-### Most Common Queries
+### Essential Commands
+```cmd
+REM Connect to MySQL
+mysql -u root -p partnership_management
+REM Enter your MySQL password when prompted
 
-```sql
--- List all active partners
-SELECT * FROM partners WHERE status = 'active';
+REM Run SQL file
+mysql -u root -p < filename.sql
+REM Enter your MySQL password when prompted
 
--- Recent events
-SELECT * FROM event ORDER BY start_date DESC LIMIT 5;
+REM Backup database
+mysqldump -u root -p partnership_management > backup.sql
+REM Enter your MySQL password when prompted
 
--- Unpaid invoices
-SELECT * FROM invoice WHERE status = 'unpaid';
-
--- Top contributors
-SELECT p.name, SUM(c.monetary_value) AS total
-FROM partners p
-JOIN contribution c ON p.ID = c.partner_ID
-GROUP BY p.ID, p.name
-ORDER BY total DESC
-LIMIT 5;
-
--- Event with most participants
-SELECT title, student_amount + staff_amount AS total_participants
-FROM event
-ORDER BY total_participants DESC
-LIMIT 1;
+REM Restore database
+mysql -u root -p partnership_management < backup.sql
+REM Enter your MySQL password when prompted
 ```
 
-### Useful Keyboard Shortcuts (MySQL Workbench)
+### Common SQL Patterns
+```sql
+-- Select with join
+SELECT a.*, b.* FROM table_a a JOIN table_b b ON a.id = b.a_id;
 
-- **Ctrl + Enter**: Execute current statement
-- **Ctrl + Shift + Enter**: Execute all statements
-- **Ctrl + /**: Comment/uncomment line
-- **Ctrl + B**: Beautify/format query
-- **Ctrl + Space**: Auto-complete
-- **F5**: Refresh
+-- Count with group
+SELECT category, COUNT(*) FROM table GROUP BY category;
+
+-- Update with condition
+UPDATE table SET field = 'value' WHERE condition;
+
+-- Delete with condition
+DELETE FROM table WHERE condition;
+
+-- Insert with select
+INSERT INTO table SELECT * FROM other_table WHERE condition;
+```
 
 ---
 
-## Conclusion
+## Next Steps
 
-This guide covers the essential operations for working with the Partnership Management System database. For more advanced MySQL features, refer to the official MySQL documentation at https://dev.mysql.com/doc/
+1. **Explore the data**: Use the SELECT queries to familiarize yourself with the data
+2. **Test modifications**: Try INSERT, UPDATE, DELETE operations
+3. **Create reports**: Use JOIN and GROUP BY to generate insights
+4. **Build new queries**: Practice writing complex queries for your specific needs
+5. **Backup regularly**: Use mysqldump to backup your database
 
-Remember to:
-- Always backup before major changes
-- Use transactions for related operations
-- Test queries on a copy before running on production
-- Keep your password secure
-- Regularly review and optimize slow queries
+For more information, refer to:
+- MySQL Documentation: https://dev.mysql.com/doc/
+- SQL Tutorial: https://www.w3schools.com/sql/

@@ -11,7 +11,7 @@ erDiagram
 
 	organization {
 		UID ID PK ""  
-		enum scope  "company / government agency / NGO"  
+		enum type  "company / government agency / NGO"  
 	}
 
 	individual {
@@ -45,14 +45,6 @@ erDiagram
 		string email  ""  
 		int phone  ""  
 		bool is_primary  ""  
-	}
-
-	contact_individual {
-		UID ID PK
-	}
-
-	contact_organization {
-		UID ID PK
 	}
 
 	documents {
@@ -117,15 +109,13 @@ erDiagram
 	partners}o--o{event:"partner_events"
 	partners||--o{contribution:"partner_contributions"
 	partners||--o{invoice:"partner_invoices"
-	individual||--o{contact_individual:"individual_has_contact"
-	organization||--o{contact_organization:"organization_has_contact"
 	organization_unit}o--||affiliation:"unit_affiliation"
 	organization_unit||--||organization:"org_info"
 	organization_unit||--o{invoice:"organization_unit_invoices"
 	organization_unit||--o{feedback:"organization_unit_feedback"
 	contact_point||--o{contact:"contact_point_has_contact"
-	contact||--||contact_organization:"contact_is_org"
-	contact||--||contact_individual:"contact_is_individual"
+	contact}o--||organization:"contact_is_org"
+	contact}o--||individual:"contact_is_individual"
 	event||--||partners:"event_primary_partner"
 	event||--o{invoice:"event_invoices"
 	event||--o{feedback:"event_feedbacks"

@@ -1,178 +1,145 @@
-# Partnership Management System - Design Explanation
+# Partnership Management System - Database Design Explanation
 
-## 1. Introduction
+## 1. Overview
 
-This document explains the design decisions made for the Partnership Management System database, which is intended to track and manage partnerships between an educational institution and external entities (individuals and organizations). The system manages collaboration events, contributions, financial transactions, and feedback.
+This partnership management system is designed to track and manage relationships between a university and its external partners (both organizations and individuals), including collaboration events, financial transactions, contributions, and feedback.
 
 ## 2. Entity Design Decisions
 
-### 2.1 Partners Entity (Generalization/Specialization)
+### 2.1 Partners (Main Entity)
+**Attributes:**
+- `ID` (UID, PK): Unique identifier for each partner
+- `name` (string): Partner's name
+- `type` (enum): Distinguishes between 'organization' and 'individual'
+- `status` (enum): Tracks partnership lifecycle ('prospect', 'active', 'inactive')
+- `note` (string): Additional remarks
 
-**Design Decision**: We implemented a generalization-specialization hierarchy where `partners` is the superclass, and `organization` and `individual` are subclasses.
+**Design Rationale:** Partners serves as the central entity using a generalization/specialization pattern. This allows common attributes to be stored once while enabling specific attributes for organizations and individuals in separate tables.
 
-**Rationale**:
-- Both organizations and individuals share common attributes (ID, name, type, status, note)
-- Each subtype has unique attributes: organizations have a scope (company/government/NGO), while individuals have a type (lecturer/expert/alumni/sponsor)
-- This design follows the ISA (Is-A) relationship principle and avoids NULL values in a single table
-- The `type` attribute in partners distinguishes between the two subtypes for quick queries
+### 2.2 Organization and Individual (Specialization)
+**Organization attributes:**
+- `ID` (UID, PK, FK to Partners)
+- `type` (enum): 'company', 'government agency', 'NGO'
 
-**Implementation**: Using total participation (each partner must be either an organization or individual) with disjoint constraints (cannot be both).
+**Individual attributes:**
+- `ID` (UID, PK, FK to Partners)
+- `type` (enum): 'lecturer', 'expert', 'alumni', 'sponsor'
 
-### 2.2 Contact Management
+**Design Rationale:** Implemented using inheritance (ISA relationship). Each organization/individual must be a partner, preventing orphaned records. This supports polymorphic queries while maintaining type-specific data integrity.
 
-**Design Decision**: Created a two-level contact structure with `contact_point` and `contact` entities, along with specialization for `contact_individual` and `contact_organization`.
+### 2.3 Affiliation
+**Attributes:**
+- `ID` (UID, PK): Unique identifier
+- `start_date` (date): When the affiliation began
+- `remark` (string): Additional notes
+- Foreign keys to Partners and Organization_unit
 
-**Rationale**:
-- Partners may have multiple contact points (e.g., different departments or representatives)
-- Each contact point can have multiple contact methods (email, phone with different purposes)
-- The `is_primary` flag indicates the preferred contact method
-- Separating contact_individual and contact_organization allows for different attributes if needed in the future
-- This design provides flexibility for managing complex organizational structures
+**Design Rationale:** Models many-to-one relationship between partners and organizational units. A partner can be affiliated with one organizational unit at a time, but a unit can have multiple affiliated partners. This tracks formal associations within the university structure.
 
-### 2.3 Affiliation Entity
+### 2.4 Organization_unit
+**Attributes:**
+- `ID` (UID, PK): Unique identifier
+- `scope` (enum): 'school', 'faculty', 'lab', 'center'
 
-**Design Decision**: Created a separate `affiliation` entity to link partners with `organization_unit`.
+**Design Rationale:** Represents internal university organizational structure. Connected to organization partners through a one-to-one relationship (org_info) for organizations that are specifically linked to a unit. Also tracks which unit manages events, invoices, and feedback.
 
-**Rationale**:
-- Represents a many-to-many relationship between partners and organizational units
-- Tracks temporal information (start_date) indicating when the affiliation began
-- Allows for additional attributes like remarks to document the nature of the affiliation
-- Supports scenarios where one partner affiliates with multiple units and vice versa
+### 2.5 Contact_point and Contact
+**Contact_point attributes:**
+- `ID`, `name`, `email`, `phone` (PK attributes)
+- `type` (enum): 'organization' or 'individual'
+- `position` (enum): Role/position of contact
 
-### 2.4 Documents Entity
+**Contact attributes:**
+- `ID`, `name`, `email`, `phone`
+- `is_primary` (bool): Indicates primary contact
 
-**Design Decision**: Separate entity for legal documents (MoU, contracts, LoI).
+**Design Rationale:** Two-level contact structure where contact_point serves as a grouping mechanism (one partner can have multiple contact points), and each contact point can have multiple individual contacts. This supports complex organizational structures where different departments have different contact persons.
 
-**Rationale**:
-- Documents are critical business objects requiring their own lifecycle management
-- Attributes like status (draft/signed/expired/terminated) track the document's state
-- Start and end dates enable automatic expiration tracking
-- Link attribute stores file location or URL
-- One partner can have multiple documents over time
+### 2.6 Documents
+**Attributes:**
+- `ID` (UID, PK)
+- `title` (string): Document name
+- `type` (enum): 'MoU', 'contract', 'letter', 'LoI'
+- `start_date`, `end_date` (date): Validity period
+- `status` (enum): 'draft', 'signed', 'expired', 'terminated'
+- `link` (string): File storage location
 
-### 2.5 Events and Contributions
+**Design Rationale:** Tracks formal agreements with partners. Status tracking enables automated notifications for expiring agreements. The link attribute supports document management systems integration.
 
-**Design Decision**: Separate `event` and `contribution` entities with a one-to-many relationship from events to contributions.
+### 2.7 Event
+**Attributes:**
+- `title` (string): Event name
+- `type` (enum): 'seminar', 'workshop', 'competition', 'hackathon', 'guest lecture', 'research activity'
+- `location`, `start_date`, `end_date`
+- `student_amount`, `staff_amount` (int): Participation metrics
+- `scope_description` (string): Event scope details
 
-**Rationale**:
-- Events represent collaboration activities with partners
-- Contributions can be cash or in-kind and are tied to specific events
-- Multiple partners can participate in one event (many-to-many relationship)
-- One event can have multiple contributions from different partners
-- Each event has a primary partner (main organizer) through a one-to-one relationship
-- Tracks participation metrics (student_amount, staff_amount) for impact assessment
+**Design Rationale:** Central to collaboration tracking. Many-to-many relationship with partners allows multiple partners per event and vice versa. One partner is designated as the primary partner (event_primary_partner relationship). Participation metrics enable impact assessment.
 
-### 2.6 Invoice and Payment
+### 2.8 Contribution
+**Attributes:**
+- `ID` (UID, PK)
+- `type` (enum): 'cash' or 'in kind'
+- `description` (string): Details of contribution
+- `monetary_value` (int): Valuation
+- `created_date` (date)
+- `note` (string)
 
-**Design Decision**: Separate entities for `invoice` and `payment` with one-to-many relationship.
+**Design Rationale:** Tracks both monetary and non-monetary contributions. Every contribution is linked to a specific event and partner. Monetary valuation of in-kind contributions enables comprehensive reporting.
 
-**Rationale**:
-- Invoices can be paid in multiple installments, requiring separate payment tracking
-- Payment methods (cash/bank transfer/e-wallet) are tracked at the payment level
-- Invoice status (unpaid/paid/cancelled) provides quick financial overview
-- Reference numbers enable external system integration
-- Supports both partner invoices and organizational unit invoices
+### 2.9 Invoice and Payment
+**Invoice attributes:**
+- `ID`, `issue_date`, `amount`
+- `status` (enum): 'unpaid', 'paid', 'cancelled'
+- `ref_num` (int): Reference number
 
-### 2.7 Feedback Entity
+**Payment attributes:**
+- `ID`, `created_date`
+- `method` (enum): 'cash', 'bank transfer', 'e-wallet'
+- `amount`, `ref_payment` (string)
 
-**Design Decision**: Feedback entity linked to both events and organizational units.
+**Design Rationale:** Separate entities to handle partial payments (one invoice can have multiple payments). Invoices can be linked to partners, events, or organizational units, providing flexible billing scenarios. Status tracking enables accounts receivable management.
 
-**Rationale**:
-- Captures stakeholder satisfaction with numerical ratings (1-5 scale)
-- Can be associated with specific events for activity-level feedback
-- Can be associated with organizational units for unit-level feedback
-- Comments field allows qualitative feedback
-- Temporal tracking (created_date) enables trend analysis
+### 2.10 Feedback
+**Attributes:**
+- `ID`, `rater` (string)
+- `rating` (int): 1-5 scale
+- `comment` (string)
+- `created_date` (date)
 
-## 3. Relationship Cardinalities
+**Design Rationale:** Collects qualitative and quantitative feedback for events. Linked to both events and organizational units to track performance by unit and event type.
 
-### 3.1 Partner Relationships
+## 3. Relationship Cardinality Decisions
 
-- **Partners ↔ Organization/Individual**: (1:1) - Total participation, each partner is exactly one type
-- **Partners ↔ Contact Points**: (1:N) - One partner can have multiple contact points
-- **Partners ↔ Affiliation**: (N:1) - Many partners can share one affiliation record (though typically one-to-one with organizational units through affiliation)
-- **Partners ↔ Documents**: (1:N) - One partner can have multiple documents
-- **Partners ↔ Events**: (N:M) - Partners can participate in multiple events, events can have multiple partners
-- **Partners ↔ Contributions**: (1:N) - One partner can make multiple contributions
-- **Partners ↔ Invoices**: (1:N) - One partner can have multiple invoices
+### One-to-One Relationships:
+- **Partners to Organization/Individual**: Each partner is either an organization OR an individual (disjoint specialization)
+- **Organization_unit to Organization**: Each organizational unit may have one associated organization partner
+- **Event to Partners (primary)**: Each event has one primary partner
 
-### 3.2 Event Relationships
+### One-to-Many Relationships:
+- **Partners to Contact_points**: One partner can have multiple contact points
+- **Partners to Documents**: One partner can have multiple agreements
+- **Partners to Contributions/Invoices**: One partner can make multiple contributions and receive multiple invoices
+- **Event to Invoices/Feedback**: Events can have multiple invoices and feedback records
+- **Invoice to Payments**: One invoice can have multiple payments (partial payments)
 
-- **Event ↔ Primary Partner**: (N:1) - Each event has one primary partner
-- **Event ↔ Contributions**: (1:N) - One event can receive multiple contributions
-- **Event ↔ Invoices**: (1:N) - One event can generate multiple invoices
-- **Event ↔ Feedback**: (1:N) - One event can receive multiple feedback records
+### Many-to-Many Relationships:
+- **Partners to Events**: Partners can participate in multiple events, events can have multiple partners
+- **Partners to Affiliation to Organization_units**: Through affiliation entity
 
-### 3.3 Organizational Unit Relationships
+## 4. Data Integrity Considerations
 
-- **Organization Unit ↔ Affiliation**: (N:1) - Multiple affiliations can point to one unit
-- **Organization Unit ↔ Organization**: (N:1) - Multiple units belong to one organization (hierarchical structure)
-- **Organization Unit ↔ Invoices**: (1:N) - One unit can have multiple invoices
-- **Organization Unit ↔ Feedback**: (1:N) - One unit can receive multiple feedback records
+1. **Referential Integrity**: All foreign keys enforce referential integrity with CASCADE or SET NULL options based on business rules
+2. **Enumerated Types**: Used extensively to constrain values and prevent invalid data entry
+3. **Status Tracking**: Multiple entities include status fields enabling lifecycle management
+4. **Temporal Data**: Date fields track when records were created and validity periods
+5. **Primary Keys**: All entities have UID primary keys ensuring uniqueness
 
-### 3.4 Financial Relationships
+## 5. Extensibility
 
-- **Invoice ↔ Payments**: (1:N) - One invoice can have multiple payments (installments)
-
-### 3.5 Contact Relationships
-
-- **Contact Point ↔ Contacts**: (1:N) - One contact point can have multiple contact methods
-- **Contact ↔ Contact Organization/Individual**: (1:1) - Each contact is exactly one type
-
-## 4. Key Attribute Decisions
-
-### 4.1 Use of Enumerations
-
-Extensive use of ENUM types for controlled vocabularies:
-- **Partner status**: Tracks relationship lifecycle (prospect/active/inactive)
-- **Document status**: Manages document lifecycle (draft/signed/expired/terminated)
-- **Event types**: Categorizes collaboration activities
-- **Payment methods**: Standardizes payment tracking
-- **Contribution types**: Distinguishes cash vs. in-kind contributions
-
-**Rationale**: Ensures data integrity, simplifies queries, and provides clear business semantics.
-
-### 4.2 Temporal Attributes
-
-All major entities include date tracking:
-- **created_date**: Audit trail for when records were created
-- **start_date/end_date**: Valid time period for documents and events
-- **issue_date**: Financial record keeping for invoices
-
-**Rationale**: Enables temporal queries, audit trails, and automated expiration management.
-
-### 4.3 Monetary Values
-
-Used appropriate data types for financial data:
-- **amount** (double): For invoice and payment amounts
-- **monetary_value** (int): For contribution valuations
-
-**Rationale**: Balance between precision and storage efficiency. Integer for contributions as they're estimates; double for actual financial transactions.
-
-## 5. Design Patterns and Best Practices
-
-### 5.1 Normalization
-
-The design follows Third Normal Form (3NF):
-- No repeating groups
-- All non-key attributes depend on the entire primary key
-- No transitive dependencies
-
-### 5.2 Referential Integrity
-
-All relationships enforce referential integrity through foreign keys, ensuring:
-- No orphaned records
-- Cascade operations where appropriate
-- Data consistency across related entities
-
-### 5.3 Extensibility
-
-The design allows for future extensions:
-- New partner types can be added through the generalization hierarchy
-- New event types can be added to the enumeration
-- Additional attributes can be added to entities without major restructuring
-- The contact point system can accommodate new contact methods
-
-## 6. Conclusion
-
-This database design balances normalization principles with practical business requirements. The use of generalization/specialization hierarchies, separate entities for different business concepts, and careful cardinality definitions creates a robust foundation for a partnership management system. The design supports complex queries for reporting, maintains data integrity, and provides flexibility for future enhancements.
+The design supports future extensions such as:
+- Additional partner types by extending the type enumeration
+- New event categories
+- Additional payment methods
+- Expansion of organizational unit hierarchy
+- Integration with external systems via link/reference fields
